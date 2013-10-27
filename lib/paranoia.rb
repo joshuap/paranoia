@@ -27,30 +27,32 @@ module Paranoia
 
   module Callbacks
     def self.extended(klazz)
-      klazz.define_callbacks :restore
+      klazz.define_paranoia_callbacks :delete, :restore
+    end
 
-      klazz.define_singleton_method("before_restore") do |*args, &block|
-        set_callback(:restore, :before, *args, &block)
-      end
+    def define_paranoia_callbacks(*callbacks)
+      define_callbacks(*callbacks)
+      callbacks.each do |callback|
+        define_singleton_method(:"before_#{callback}") do |*args, &block|
+          set_callback(callback, :before, *args, &block)
+        end
 
-      klazz.define_singleton_method("around_restore") do |*args, &block|
-        set_callback(:restore, :around, *args, &block)
-      end
+        define_singleton_method(:"around_#{callback}") do |*args, &block|
+          set_callback(callback, :around, *args, &block)
+        end
 
-      klazz.define_singleton_method("after_restore") do |*args, &block|
-        set_callback(:restore, :after, *args, &block)
+        define_singleton_method(:"after_#{callback}") do |*args, &block|
+          set_callback(callback, :after, *args, &block)
+        end
       end
     end
   end
 
-  def destroy
-    run_callbacks(:destroy) { delete }
-  end
-
   def delete
     return if new_record?
-    destroyed? ? destroy! : update_column(paranoia_column, Time.now)
+    destroyed? ? destroy! : run_callbacks(:delete) { update_column(paranoia_column, Time.now) }
   end
+  alias :destroy :delete
 
   def restore!
     run_callbacks(:restore) { update_column paranoia_column, nil }

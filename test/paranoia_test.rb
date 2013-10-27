@@ -182,15 +182,23 @@ class ParanoiaTest < Test::Unit::TestCase
     model = CallbackModel.new
     model.save
     model.delete
-    assert_equal nil, model.instance_variable_get(:@callback_called)
+    assert model.instance_variable_get(:@delete_callback_called)
   end
 
   def test_destroy_behavior_for_callbacks
     model = CallbackModel.new
     model.save
     model.destroy
-    assert model.instance_variable_get(:@callback_called)
+    assert model.instance_variable_get(:@delete_callback_called)
   end
+
+  def test_destroy_bang_behavior_for_callbacks
+    model = CallbackModel.new
+    model.save
+    model.destroy!
+    assert model.instance_variable_get(:@destroy_callback_called)
+  end
+
 
   def test_restore
     model = ParanoidModel.new
@@ -301,7 +309,8 @@ end
 
 class CallbackModel < ActiveRecord::Base
   acts_as_paranoid
-  before_destroy {|model| model.instance_variable_set :@callback_called, true }
+  before_delete {|model| model.instance_variable_set :@delete_callback_called, true }
+  before_destroy {|model| model.instance_variable_set :@destroy_callback_called, true }
   before_restore {|model| model.instance_variable_set :@restore_callback_called, true }
 end
 
