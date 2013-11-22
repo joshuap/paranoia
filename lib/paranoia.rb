@@ -27,24 +27,33 @@ module Paranoia
 
   module Callbacks
     def self.extended(klazz)
-      klazz.define_callbacks :restore
+      klazz.define_paranoia_callbacks :soft_destroy, :hard_destroy, :restore
+    end
 
-      klazz.define_singleton_method("before_restore") do |*args, &block|
-        set_callback(:restore, :before, *args, &block)
-      end
+    def define_paranoia_callbacks(*callbacks)
+      define_callbacks(*callbacks)
+      callbacks.each do |callback|
+        define_singleton_method(:"before_#{callback}") do |*args, &block|
+          set_callback(callback, :before, *args, &block)
+        end
 
-      klazz.define_singleton_method("around_restore") do |*args, &block|
-        set_callback(:restore, :around, *args, &block)
-      end
+        define_singleton_method(:"around_#{callback}") do |*args, &block|
+          set_callback(callback, :around, *args, &block)
+        end
 
-      klazz.define_singleton_method("after_restore") do |*args, &block|
-        set_callback(:restore, :after, *args, &block)
+        define_singleton_method(:"after_#{callback}") do |*args, &block|
+          set_callback(callback, :after, *args, &block)
+        end
       end
     end
   end
 
   def destroy
-    run_callbacks(:destroy) { delete_or_soft_delete(true) }
+    run_callbacks(:destroy) do
+      run_callbacks(destroyed? ? :hard_destroy : :soft_destroy) do
+        delete_or_soft_delete(true)
+      end
+    end
   end
 
   def delete
@@ -54,6 +63,10 @@ module Paranoia
 
   def restore!
     run_callbacks(:restore) { update_column paranoia_column, nil }
+  end
+
+  def destroy!
+    run_callbacks(:hard_destroy) { super }
   end
 
   def destroyed?
